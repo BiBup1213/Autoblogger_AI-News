@@ -14,10 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractionError(RuntimeError):
+    """Raised when an article cannot be fetched or reduced to usable text."""
+
     pass
 
 
 class ArticleExtractor:
+    """Fetch article pages and extract their main text with trafilatura."""
+
     def __init__(self, timeout_seconds: int, user_agent: str, min_chars: int) -> None:
         self.timeout_seconds = timeout_seconds
         self.min_chars = min_chars
@@ -25,6 +29,7 @@ class ArticleExtractor:
         self.session.headers.update({"User-Agent": user_agent})
 
     def extract(self, item: FeedItem) -> ArticleContent:
+        """Extract article content or raise ExtractionError with a durable reason."""
         try:
             response = self.session.get(item.url, timeout=self.timeout_seconds)
             response.raise_for_status()
@@ -63,4 +68,3 @@ class ArticleExtractor:
             text=extracted_text,
             canonical_url=canonical_url,
         )
-
