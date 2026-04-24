@@ -9,6 +9,7 @@ from app.db import Database
 from app.extractor import ArticleExtractor, ExtractionError
 from app.feed_fetcher import FeedFetcher
 from app.filters import should_process_entry
+from app.image_generator import ImageGenerator
 from app.models import FeedItem, SourceConfig
 from app.sources import SOURCES
 from app.summarizer import Summarizer
@@ -27,6 +28,7 @@ class NewsPipeline:
         feed_fetcher: FeedFetcher,
         extractor: ArticleExtractor,
         summarizer: Summarizer,
+        image_generator: ImageGenerator,
         publisher: WordPressPublisher,
         sources: tuple[SourceConfig, ...] = SOURCES,
     ) -> None:
@@ -35,6 +37,7 @@ class NewsPipeline:
         self.feed_fetcher = feed_fetcher
         self.extractor = extractor
         self.summarizer = summarizer
+        self.image_generator = image_generator
         self.publisher = publisher
         self.sources = sources
 
@@ -57,9 +60,17 @@ class NewsPipeline:
             logger.info("Fetching feed: %s", source.name)
             items = self.feed_fetcher.fetch(source)
             logger.info("Fetched %s item(s) from %s", len(items), source.name)
+            source_processed_count = 0
 
             for item in items:
                 if processed_count >= self.settings.max_articles_per_run:
+                    break
+                if source_processed_count >= self.settings.max_articles_per_source_per_run:
+                    logger.info(
+                        "Reached MAX_ARTICLES_PER_SOURCE_PER_RUN=%s for %s",
+                        self.settings.max_articles_per_source_per_run,
+                        source.name,
+                    )
                     break
 
                 filter_result = should_process_entry(source, item)
@@ -73,7 +84,10 @@ class NewsPipeline:
                     continue
 
                 processed_count += 1
+                source_processed_count += 1
                 self._process_entry(source_id, feed_entry_id, item)
+
+            logger.info("Processed %s new article(s) from %s", source_processed_count, source.name)
 
         logger.info("Run finished. New entries processed: %s", processed_count)
 
@@ -100,15 +114,27 @@ class NewsPipeline:
             self.database.update_feed_entry_status(feed_entry_id, "failed", str(exc))
             return
 
+        generated_image = None
         try:
-            publish_result = self.publisher.create_draft(summary)
+            generated_image = self.image_generator.generate(summary)
+            if generated_image is not None:
+                logger.info(
+                    "Generated featured image for %s at %s",
+                    summary.german_title,
+                    generated_image.local_file_path,
+                )
+        except Exception as exc:
+            logger.warning("Image generation failed for %s: %s", summary.german_title, exc)
+
+        try:
+            publish_result = self.publisher.create_draft(summary, generated_image)
             self.database.create_or_update_publish_job(
                 article_id=article_id,
                 status=publish_result.status,
                 wordpress_post_id=publish_result.wordpress_post_id,
                 wordpress_url=publish_result.wordpress_url,
             )
-            if publish_result.status == "draft_created":
+            if publish_result.status in {"draft_created", "published"}:
                 self.database.update_feed_entry_status(feed_entry_id, "published")
             logger.info("Publishing status for %s: %s", summary.german_title, publish_result.status)
         except Exception as exc:

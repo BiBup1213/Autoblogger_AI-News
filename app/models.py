@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -43,6 +44,7 @@ class ArticleContent:
     published_at: str | None
     text: str
     canonical_url: str | None = None
+    content_source_type: str = "full_article"
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,7 @@ class GermanSummary:
     source_url: str
     original_title: str
     tags: list[str] = field(default_factory=list)
+    category_ids: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -61,4 +64,16 @@ class PublishResult:
     wordpress_post_id: int | None
     wordpress_url: str | None
     status: str
+    featured_media_id: int | None = None
+    image_status: str | None = None
 
+
+@dataclass(frozen=True)
+class GeneratedImage:
+    local_file_path: Path
+    mime_type: str
+    generation_prompt_used: str
+    alt_text: str
+    caption: str | None = None
+    width: int | None = None
+    height: int | None = None

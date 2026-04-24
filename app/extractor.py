@@ -9,6 +9,7 @@ import trafilatura
 from trafilatura.metadata import extract_metadata
 
 from app.models import ArticleContent, FeedItem
+from app.utils import build_http_headers
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,26 @@ class ArticleExtractor:
         self.timeout_seconds = timeout_seconds
         self.min_chars = min_chars
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": user_agent})
+        self.session.headers.update(build_http_headers(user_agent))
 
     def extract(self, item: FeedItem) -> ArticleContent:
         """Extract article content or raise ExtractionError with a durable reason."""
         try:
-            response = self.session.get(item.url, timeout=self.timeout_seconds)
+            response = self.session.get(
+                item.url,
+                timeout=self.timeout_seconds,
+                allow_redirects=True,
+            )
             response.raise_for_status()
+        except requests.HTTPError as exc:
+            status_code = exc.response.status_code if exc.response is not None else None
+            if status_code == 403:
+                raise ExtractionError(
+                    "Article fetch forbidden (HTTP 403). The source may block "
+                    "automated requests even with browser-like headers; manual review "
+                    f"or source-specific access handling may be required. URL: {item.url}"
+                ) from exc
+            raise ExtractionError(f"Article fetch failed: {exc}") from exc
         except requests.RequestException as exc:
             raise ExtractionError(f"Article fetch failed: {exc}") from exc
 
@@ -67,4 +81,5 @@ class ArticleExtractor:
             published_at=published_at,
             text=extracted_text,
             canonical_url=canonical_url,
+            content_source_type="full_article",
         )

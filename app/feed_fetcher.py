@@ -10,7 +10,7 @@ import feedparser
 import requests
 
 from app.models import FeedItem, SourceConfig
-from app.utils import normalize_url
+from app.utils import FEED_ACCEPT_HEADER, build_http_headers, normalize_url
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class FeedFetcher:
     def __init__(self, timeout_seconds: int, user_agent: str) -> None:
         self.timeout_seconds = timeout_seconds
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": user_agent})
+        self.session.headers.update(build_http_headers(user_agent, FEED_ACCEPT_HEADER))
 
     def fetch(self, source: SourceConfig) -> list[FeedItem]:
         """Return parseable feed entries, logging network failures as warnings."""

@@ -73,11 +73,12 @@ def main() -> None:
     if args.command == "run":
         from app.extractor import ArticleExtractor
         from app.feed_fetcher import FeedFetcher
+        from app.image_generator import create_image_generator
         from app.pipeline import NewsPipeline
         from app.summarizer import create_summarizer
         from app.wordpress import WordPressPublisher
 
-        summarizer = create_summarizer(settings.summarizer_provider)
+        summarizer = create_summarizer(settings)
         pipeline = NewsPipeline(
             settings=settings,
             database=database,
@@ -88,6 +89,7 @@ def main() -> None:
                 settings.min_extracted_chars,
             ),
             summarizer=summarizer,
+            image_generator=create_image_generator(settings),
             publisher=WordPressPublisher(settings),
         )
         pipeline.run()
@@ -98,4 +100,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
