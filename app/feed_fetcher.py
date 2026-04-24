@@ -16,12 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 class FeedFetcher:
+    """Fetch and normalize approved RSS/Atom feeds."""
+
     def __init__(self, timeout_seconds: int, user_agent: str) -> None:
         self.timeout_seconds = timeout_seconds
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
     def fetch(self, source: SourceConfig) -> list[FeedItem]:
+        """Return parseable feed entries, logging network failures as warnings."""
         try:
             response = self.session.get(source.feed_url, timeout=self.timeout_seconds)
             response.raise_for_status()
@@ -41,6 +44,7 @@ class FeedFetcher:
         return items
 
     def _parse_entry(self, source: SourceConfig, entry: Any) -> FeedItem | None:
+        """Map feedparser's loose entry shape into the internal FeedItem model."""
         link = entry.get("link")
         if not link:
             return None
@@ -89,4 +93,3 @@ class FeedFetcher:
             return parsedate_to_datetime(raw_value).date().isoformat()
         except (TypeError, ValueError, IndexError, OverflowError):
             return None
-

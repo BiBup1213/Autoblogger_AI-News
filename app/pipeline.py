@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class NewsPipeline:
+    """Coordinate one synchronous pass through the approved source registry."""
+
     def __init__(
         self,
         settings: Settings,
@@ -37,6 +39,7 @@ class NewsPipeline:
         self.sources = sources
 
     def run(self) -> None:
+        """Fetch active sources and process new accepted entries once."""
         self.database.initialize()
         self.database.upsert_sources(self.sources)
 
@@ -75,6 +78,7 @@ class NewsPipeline:
         logger.info("Run finished. New entries processed: %s", processed_count)
 
     def _process_entry(self, source_id: int, feed_entry_id: int, item: FeedItem) -> None:
+        """Process one newly inserted entry through all downstream stages."""
         try:
             article = self.extractor.extract(item)
             article_id = self.database.create_extracted_article(feed_entry_id, source_id, article)
@@ -104,7 +108,7 @@ class NewsPipeline:
                 wordpress_post_id=publish_result.wordpress_post_id,
                 wordpress_url=publish_result.wordpress_url,
             )
-            if publish_result.status == "published":
+            if publish_result.status == "draft_created":
                 self.database.update_feed_entry_status(feed_entry_id, "published")
             logger.info("Publishing status for %s: %s", summary.german_title, publish_result.status)
         except Exception as exc:

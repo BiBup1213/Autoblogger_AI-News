@@ -14,11 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 class WordPressPublisher:
+    """Create WordPress draft posts through the REST API."""
+
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.session = requests.Session()
 
     def create_draft(self, summary: GermanSummary) -> PublishResult:
+        """Create a draft post, or return a non-remote status for dry runs."""
         if self.settings.wordpress_dry_run:
             logger.info("WordPress dry-run enabled; draft creation skipped for %s", summary.german_title)
             return PublishResult(None, None, "dry_run")
@@ -64,6 +67,5 @@ class WordPressPublisher:
         return PublishResult(
             wordpress_post_id=int(post_id) if post_id is not None else None,
             wordpress_url=str(post_url) if post_url else None,
-            status="published",
+            status="draft_created",
         )
-

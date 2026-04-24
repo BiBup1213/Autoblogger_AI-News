@@ -6,7 +6,7 @@ import json
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 from app.models import ArticleContent, FeedItem, GermanSummary, SourceConfig
 from app.utils import utc_now_iso
@@ -15,10 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
+    """Small SQLite gateway used by the synchronous pipeline.
+
+    The MVP keeps SQL in one place so the pipeline can stay focused on product
+    flow: discovery, extraction, summarization, and draft creation.
+    """
+
     def __init__(self, path: Path) -> None:
         self.path = path
 
     def connect(self) -> sqlite3.Connection:
+        """Return a connection configured for named rows and foreign keys."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row
@@ -26,6 +33,7 @@ class Database:
         return connection
 
     def initialize(self) -> None:
+        """Create the MVP schema if it does not exist yet."""
         with self.connect() as connection:
             connection.executescript(
                 """
@@ -98,6 +106,7 @@ class Database:
         logger.info("SQLite database initialized at %s", self.path)
 
     def upsert_sources(self, sources: Iterable[SourceConfig]) -> None:
+        """Sync configured source definitions into the local database."""
         now = utc_now_iso()
         with self.connect() as connection:
             for source in sources:
@@ -139,6 +148,11 @@ class Database:
             )
 
     def insert_feed_entry(self, source_id: int, item: FeedItem) -> int | None:
+        """Insert a newly discovered feed item.
+
+        Returns the new row id, or None when the item is already known by URL,
+        canonical URL, or source-local GUID.
+        """
         now = utc_now_iso()
         with self.connect() as connection:
             try:
@@ -289,7 +303,7 @@ class Database:
             excluded_categories=tuple(json.loads(row["excluded_categories"])),
         )
 
-    def get_counts_by_status(self) -> dict[str, Any]:
+    def get_counts_by_status(self) -> dict[str, dict[str, int]]:
         with self.connect() as connection:
             entry_rows = connection.execute(
                 "SELECT status, COUNT(*) AS count FROM feed_entries GROUP BY status"
@@ -301,4 +315,3 @@ class Database:
             "feed_entries": {row["status"]: row["count"] for row in entry_rows},
             "publish_jobs": {row["status"]: row["count"] for row in publish_rows},
         }
-
