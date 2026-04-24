@@ -12,13 +12,9 @@ import logging
 
 from app.config import load_settings
 from app.db import Database
-from app.extractor import ArticleExtractor
-from app.feed_fetcher import FeedFetcher
+from app.doctor import Doctor, render_report
 from app.logging_config import configure_logging
-from app.pipeline import NewsPipeline
 from app.sources import SOURCES
-from app.summarizer import create_summarizer
-from app.wordpress import WordPressPublisher
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +33,12 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("init-db", help="Initialize SQLite schema and source registry")
     subparsers.add_parser("sources", help="Print configured source registry")
     subparsers.add_parser("status", help="Print stored status counts")
+    doctor_parser = subparsers.add_parser("doctor", help="Run system readiness checks")
+    doctor_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print all detail lines for each readiness check",
+    )
     return parser
 
 
@@ -63,7 +65,18 @@ def main() -> None:
         print(json.dumps(database.get_counts_by_status(), indent=2))
         return
 
+    if args.command == "doctor":
+        report = Doctor(settings=settings, sources=SOURCES).run()
+        print(render_report(report, verbose=args.verbose))
+        return
+
     if args.command == "run":
+        from app.extractor import ArticleExtractor
+        from app.feed_fetcher import FeedFetcher
+        from app.pipeline import NewsPipeline
+        from app.summarizer import create_summarizer
+        from app.wordpress import WordPressPublisher
+
         summarizer = create_summarizer(settings.summarizer_provider)
         pipeline = NewsPipeline(
             settings=settings,

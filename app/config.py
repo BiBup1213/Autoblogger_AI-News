@@ -6,10 +6,14 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
 
 
-load_dotenv()
+if load_dotenv is not None:
+    load_dotenv()
 
 
 def _bool_env(name: str, default: bool = False) -> bool:

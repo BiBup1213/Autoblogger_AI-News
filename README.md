@@ -80,6 +80,13 @@ Check persisted status counts:
 python -m app.main status
 ```
 
+Run preflight checks before the content pipeline:
+
+```bash
+python -m app.main doctor
+python -m app.main doctor --verbose
+```
+
 ## Source Registry
 
 Sources live in `app/sources.py`. The registry is deliberately small because every valid new entry from an active source is processed.

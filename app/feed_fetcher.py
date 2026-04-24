@@ -38,12 +38,12 @@ class FeedFetcher:
 
         items: list[FeedItem] = []
         for entry in parsed_feed.entries:
-            item = self._parse_entry(source, entry)
+            item = self.parse_entry(source, entry)
             if item is not None:
                 items.append(item)
         return items
 
-    def _parse_entry(self, source: SourceConfig, entry: Any) -> FeedItem | None:
+    def parse_entry(self, source: SourceConfig, entry: Any) -> FeedItem | None:
         """Map feedparser's loose entry shape into the internal FeedItem model."""
         link = entry.get("link")
         if not link:
